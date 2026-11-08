@@ -1,0 +1,56 @@
+/* ================= 设计变量 / 基础重置 ================= */
+:root{
+  --bg:#0b1017;
+  --panel:#111823;
+  --panel2:#0d141d;
+  --line:#1d2634;
+  --line2:#26313f;
+  --text:#e6edf3;
+  --muted:#8b98a9;
+  --dim:#5d6b7e;
+  --accent:#58a6ff;
+  --green:#7ee787;
+  --purple:#d2a8ff;
+  --orange:#ffa657;
+  --red:#f85149;
+  --amber:#d29922;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  --ui: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  /* 界面字号基准：调试器顶栏可调（10–21px），代码 / 行号 / 内存格 / 输出都跟着缩放 */
+  --fs: 13px;
+  --line-h: calc(var(--fs) * 1.69);
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--ui);
+  font-size:13px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+::selection{ background:rgba(88,166,255,.3); }
+
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{
+  background:#243040;
+  border-radius:6px;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+::-webkit-scrollbar-thumb:hover{
+  background:#33455c;
+  background-clip:padding-box;
+}
+::-webkit-scrollbar-corner{ background:transparent; }
+
+.hidden{ display:none !important; }
+.spacer{ flex:1; }

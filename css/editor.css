@@ -1,0 +1,88 @@
+/* ================= 代码编辑器 ================= */
+.editor-card{ flex:1 1 auto; min-height:160px; }
+
+.editor{
+  flex:1 1 auto; min-height:0;
+  display:flex; overflow:hidden;
+  background:#0a1017;
+}
+
+/* --- 行号栏 --- */
+.gutter{
+  flex:none; width:52px;
+  overflow:hidden; position:relative;
+  background:#0c131c;
+  border-right:1px solid var(--line);
+  user-select:none;
+}
+.gutter-inner{ padding:10px 0; will-change:transform; }
+.ln{
+  height:var(--line-h); line-height:var(--line-h);
+  position:relative; padding-right:9px; text-align:right;
+  font-family:var(--mono);
+  font-size:calc(var(--fs) - 1px);
+  line-height:var(--line-h);
+  color:#465468; cursor:pointer;
+}
+.ln:hover{ color:#8ba0b8; background:#121b26; }
+.ln.cur{ color:var(--amber); background:rgba(210,153,34,.09); }
+.ln .dot{
+  position:absolute; left:5px; top:50%;
+  transform:translateY(-50%);
+  width:6px; height:6px; border-radius:50%;
+  background:transparent;
+}
+.ln.has-bp .dot{ background:var(--red); box-shadow:0 0 6px rgba(248,81,73,.7); }
+.ln.has-note .dot{ background:rgba(255,166,87,.55); }
+.ln.has-bp.has-note .dot{ background:var(--red); }
+
+/* --- 高亮层 + 输入层 --- */
+.code-wrap{ position:relative; flex:1 1 auto; min-width:0; overflow:hidden; }
+
+#hl,
+#code{
+  position:absolute; inset:0; margin:0; padding:10px 14px;
+  font-family:var(--mono);
+  font-size:var(--fs);
+  line-height:var(--line-h);
+  tab-size:4;
+  white-space:pre;
+  word-wrap:normal;
+  border:0;
+}
+#hl{
+  z-index:1; overflow:hidden;
+  color:var(--text);
+  pointer-events:none;
+}
+#code{
+  z-index:2; overflow:auto;
+  resize:none; outline:none;
+  background:transparent;
+  color:transparent;
+  -webkit-text-fill-color:transparent;
+  caret-color:#7cc4ff;
+}
+#code::placeholder{ color:#3a475a; -webkit-text-fill-color:#3a475a; }
+
+/* --- 语法着色 --- */
+.c-op{ color:var(--green); }
+.c-ptr{ color:#79c0ff; }
+.c-loop{ color:var(--purple); }
+.c-io{ color:var(--orange); }
+.c-cmt{ color:#4f5e70; font-style:italic; }
+
+.cur{
+  background:rgba(210,153,34,.26);
+  box-shadow:inset 0 0 0 1px rgba(210,153,34,.55);
+  border-radius:2px;
+}
+.mate{ background:rgba(88,166,255,.2); border-radius:2px; }
+
+.editor-foot{
+  flex:none; height:28px;
+  display:flex; align-items:center; padding:0 12px;
+  border-top:1px solid var(--line);
+  background:var(--panel2);
+  font-size:11px; color:var(--dim);
+}

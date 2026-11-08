@@ -1,0 +1,115 @@
+/* ================= 行注释 / 开发文档 ================= */
+.side-card{ flex:none; height:228px; }
+
+.tabs{
+  flex:none; height:36px;
+  display:flex; align-items:center; gap:4px;
+  padding:0 10px;
+  border-bottom:1px solid var(--line);
+  background:var(--panel2);
+}
+.tab{
+  height:24px; padding:0 10px; border-radius:6px; font-size:12px;
+  border:1px solid transparent; background:transparent; color:var(--muted);
+}
+.tab:hover{ color:var(--text); }
+.tab.active{ background:#182231; color:var(--text); border-color:var(--line2); }
+
+.tab-body{
+  flex:1 1 auto; min-height:0;
+  display:flex; gap:10px;
+  padding:10px 12px;
+}
+
+.note-editor{
+  flex:0 0 40%; min-width:0;
+  display:flex; flex-direction:column; gap:6px;
+}
+.note-editor label{ font-size:11px; color:var(--muted); font-family:var(--mono); }
+.note-editor textarea{
+  flex:1; resize:none;
+  background:var(--panel2);
+  border:1px solid var(--line2); border-radius:8px;
+  color:var(--text); font:12.5px/1.6 var(--ui);
+  padding:8px 10px; outline:none;
+}
+.note-editor textarea:focus{ border-color:var(--accent); }
+
+.note-list{
+  flex:1 1 auto; min-width:0;
+  overflow:auto;
+  display:flex; flex-direction:column; gap:4px;
+}
+.note-item{
+  width:100%;
+  display:flex; gap:8px; align-items:baseline;
+  text-align:left;
+  padding:6px 8px; border-radius:7px;
+  border:1px solid transparent;
+  background:#0d141d; color:var(--text); font-size:12px;
+}
+.note-item:hover{ border-color:var(--line2); background:#141d29; }
+.note-item .nl{ flex:none; font:11px var(--mono); color:var(--accent); }
+.note-item .nt{
+  flex:1; color:#b6c3d1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.note-empty{ color:var(--dim); font-size:12px; padding:8px 4px; }
+
+.docs{
+  flex:1; width:100%; resize:none;
+  background:var(--panel2);
+  border:1px solid var(--line2); border-radius:8px;
+  color:#cfdae6; font:12.5px/1.7 var(--ui);
+  padding:10px 12px; outline:none;
+}
+.docs:focus{ border-color:var(--accent); }
+
+/* ================= 输出 / 输入 ================= */
+.io-card{ flex:none; height:186px; }
+
+.out{
+  flex:1 1 auto; min-height:0;
+  overflow:auto; padding:9px 12px;
+  font-family:var(--mono);
+  font-size:calc(var(--fs) - 0.5px);
+  line-height:1.65;
+  color:#cfdae6;
+  white-space:pre-wrap; word-break:break-all;
+  background:#0a1017;
+}
+.out .ph{ color:#3f4d60; }
+
+.in-row{
+  flex:none;
+  display:flex; gap:8px;
+  padding:8px 10px;
+  border-top:1px solid var(--line);
+  background:var(--panel2);
+}
+.in-row input{
+  flex:1; height:28px;
+  background:#0a1119;
+  border:1px solid var(--line2); border-radius:6px;
+  color:var(--text); font:12px var(--mono);
+  padding:0 9px; outline:none;
+}
+.in-row input:focus{ border-color:var(--accent); }
+.in-row button{
+  height:28px; padding:0 12px; border-radius:6px; font-size:12px;
+  border:1px solid var(--line2);
+  background:#101823; color:var(--text);
+}
+.in-row button:hover{ border-color:#33455c; background:#182231; }
+.in-row button.waiting{ border-color:var(--amber); color:var(--amber); }
+
+/* ================= 矮屏适配：把空间还给编辑器 ================= */
+@media (max-height: 800px){
+  .side-card{ height:196px; }
+  .io-card{ height:158px; }
+}
+@media (max-height: 700px){
+  .side-card{ height:172px; }
+  .io-card{ height:140px; }
+  .editor-card{ min-height:150px; }
+}

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BrainFuck 调试器</title>
+<link rel="stylesheet" href="css/tokens.css" />
+<link rel="stylesheet" href="css/layout.css" />
+<link rel="stylesheet" href="css/editor.css" />
+<link rel="stylesheet" href="css/memory.css" />
+<link rel="stylesheet" href="css/panels.css" />
+<link rel="stylesheet" href="css/overlay.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">BF</div>
+    <div>
+      <h1>BrainFuck 调试器</h1>
+      <p>语法高亮 · 断点调试 · 内存可视化</p>
+    </div>
+  </div>
+  <input id="projName" class="proj-name" value="未命名项目" maxlength="40" title="项目名称（随项目文件一起导出）" />
+  <div class="actions">
+    <a class="btn" href="compiler.html" title="C / C++ / NASM → BrainFuck">编译器 ↗</a>
+    <button id="btnNew">新建</button>
+    <button id="btnImport">导入</button>
+    <div class="menu-wrap">
+      <button id="btnExport">导出 ▾</button>
+      <div class="menu" id="exportMenu">
+        <button data-act="project">项目文件 · .bfproj.json</button>
+        <button data-act="code">BrainFuck 源码 · .bf</button>
+        <button data-act="doc">开发文档 · .md</button>
+        <button data-act="copy">复制源码到剪贴板</button>
+      </div>
+    </div>
+    <div class="font-ctl" title="界面字号：代码 / 行号 / 内存格 / 输出一起缩放（Ctrl + + / Ctrl + -）">
+      <button class="icon-btn" id="fontDec" title="缩小字号（Ctrl + -）">A−</button>
+      <span class="font-val" id="fontVal">13</span>
+      <button class="icon-btn" id="fontInc" title="放大字号（Ctrl + +）">A+</button>
+    </div>
+    <button id="btnHelp" class="icon-btn" title="帮助与快捷键">?</button>
+  </div>
+</header>
+
+<main>
+  <!-- 左栏：代码 + 注释/文档 -->
+  <section class="col">
+    <div class="card editor-card" data-panel="editor">
+      <div class="card-head">
+        <span class="card-title">代码</span>
+        <span class="chip" id="codeStat">0 行 · 0 指令</span>
+        <span class="spacer"></span>
+        <label class="mini chk" title="运行时自动把代码滚动到当前执行的指令位置（默认关闭）">
+          <input type="checkbox" id="optFollow" /> 跟随
+        </label>
+        <button class="ghost" id="btnClearBp">清除断点</button>
+      </div>
+      <div class="editor" id="editor">
+        <div class="gutter" id="gutter"><div class="gutter-inner" id="gutterInner"></div></div>
+        <div class="code-wrap">
+          <pre id="hl" aria-hidden="true"></pre>
+          <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"
+            placeholder="在这里写 BrainFuck 代码，或把 .bf 文件拖进来…"></textarea>
+        </div>
+      </div>
+      <div class="editor-foot">点击行号设置断点 · Ctrl+Enter 运行 · F10 单步 · F9 回退 · Esc 暂停</div>
+    </div>
+
+    <div class="card side-card" data-panel="side">
+      <div class="tabs">
+        <button class="tab active" data-tab="notes">行注释</button>
+        <button class="tab" data-tab="docs">开发文档</button>
+        <span class="spacer"></span>
+        <span class="chip" id="noteCount">0 条</span>
+      </div>
+      <div class="tab-body" id="tabNotes">
+        <div class="note-editor">
+          <label id="noteLabel">第 1 行</label>
+          <textarea id="noteInput" placeholder="为这一行写说明，会随项目一起保存…"></textarea>
+        </div>
+        <div class="note-list" id="noteList"></div>
+      </div>
+      <div class="tab-body hidden" id="tabDocs">
+        <textarea id="docs" class="docs" placeholder="记录算法思路、内存布局、寄存器用途、待办事项…（随项目导出）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右栏：内存 + 输出 -->
+  <section class="col">
+    <div class="card mem-card" data-panel="mem">
+      <div class="card-head">
+        <span class="card-title">内存</span>
+        <span class="chip" id="ptrChip">指针 @ 0</span>
+        <span class="spacer"></span>
+        <label class="mini chk" title="仅运行：运行中跳过内存与代码高亮渲染，只保留计算、输入与输出，大幅提升高速/∞ 档吞吐">
+          <input type="checkbox" id="optBareRun" /> 仅运行
+        </label>
+        <label class="mini chk" title="变量区：显示 / 隐藏内存卡片底部的单元格详情（地址 · 名称 · 注释 · 值）。隐藏后内存网格可用高度更大">
+          <input type="checkbox" id="optInspector" checked /> 变量区
+        </label>
+        <label class="mini">容量
+          <select id="tapeSize">
+            <option value="64">64</option>
+            <option value="128">128</option>
+            <option value="256" selected>256</option>
+            <option value="512">512</option>
+            <option value="1024">1024</option>
+            <option value="4096">4096</option>
+          </select>
+        </label>
+        <button class="ghost" id="btnClearMem">清零</button>
+      </div>
+      <div class="mem-scroll" id="memScroll">
+        <div class="mem-grid" id="memGrid"></div>
+      </div>
+      <div class="inspector" id="inspector">
+        <div class="insp-head">
+          <span>地址 <b id="inspIdx">0</b></span>
+          <span class="insp-val" id="inspVal">0</span>
+          <span class="insp-meta" id="inspMeta">0x00 · NUL</span>
+        </div>
+        <div class="insp-row">
+          <label>名称</label>
+          <input id="inspName" placeholder="给这个地址命名" maxlength="16" />
+          <label>注释</label>
+          <input id="inspNote" placeholder="这一格的作用 / 备注，悬停格子可见" maxlength="120" />
+        </div>
+        <div class="insp-row">
+          <label>值</label>
+          <button class="mini-btn" id="valDec" title="减 1">−</button>
+          <input id="inspValue" type="number" min="0" max="255" step="1" />
+          <button class="mini-btn" id="valInc" title="加 1">+</button>
+          <span class="spacer"></span>
+          <button class="mini-btn" id="btnGoto">指针移到此格</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card io-card" data-panel="io">
+      <div class="card-head">
+        <span class="card-title">输出</span>
+        <span class="chip" id="outLen">0 字符</span>
+        <span class="spacer"></span>
+        <button class="ghost" id="btnClearOut">清空</button>
+      </div>
+      <div class="out" id="out"><span class="ph">程序执行结果会显示在这里…</span></div>
+      <div class="in-row">
+        <input id="inInput" placeholder="输入字符后回车，供 , 指令读取（读数字时末尾记得加空格或换行）" />
+        <button id="btnSend">送入</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="toolbar">
+  <div class="controls">
+    <button class="btn primary" id="btnRun">
+      <svg viewBox="0 0 12 12" fill="currentColor"><path d="M2 1.4v9.2c0 .5.55.8.97.54l7.1-4.6a.64.64 0 0 0 0-1.08L2.97.86A.64.64 0 0 0 2 1.4z"/></svg>
+      运行
+    </button>
+    <button class="btn" id="btnPause" disabled>
+      <svg viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1.8" width="3" height="8.4" rx="1"/><rect x="7" y="1.8" width="3" height="8.4" rx="1"/></svg>
+      暂停
+    </button>
+    <button class="btn" id="btnStep">
+      <svg viewBox="0 0 12 12" fill="currentColor"><path d="M2 1.6v8.8c0 .5.54.8.96.55l6.1-4.4a.67.67 0 0 0 0-1.1L2.96 1.05A.64.64 0 0 0 2 1.6z"/><rect x="9.2" y="1.6" width="1.9" height="8.8" rx=".9"/></svg>
+      单步
+    </button>
+    <button class="btn" id="btnUndo" disabled title="回退一步（F9）">
+      <svg viewBox="0 0 12 12" fill="currentColor"><path d="M10 1.6v8.8c0 .5-.54.8-.96.55l-6.1-4.4a.67.67 0 0 1 0-1.1l6.1-4.4A.64.64 0 0 1 10 1.6z"/><rect x=".9" y="1.6" width="1.9" height="8.8" rx=".9"/></svg>
+      上一步
+    </button>
+    <button class="btn" id="btnReset">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10.2 6a4.2 4.2 0 1 1-1.4-3.1"/><path d="M10.4 1.6v3h-3"/></svg>
+      重置
+    </button>
+  </div>
+  <div class="status">
+    <span class="pill" id="statusPill">就绪</span>
+    <span class="stat">指针 <b id="stPtr">0</b></span>
+    <span class="stat">指令 <b id="stPc">0</b> / <b id="stTotal">0</b></span>
+    <span class="stat">步数 <b id="stSteps">0</b></span>
+    <span class="stat">行 <b id="stLine">1</b> : <b id="stCol">1</b></span>
+    <span class="stat err" id="stErrWrap" style="display:none">错误 <b id="stErr"></b></span>
+  </div>
+  <div class="speed">
+    <div class="seg" id="speedPresets">
+      <button data-ips="10" title="10 指令/秒 · 逐条观察">慢放</button>
+      <button data-ips="1000" title="1000 指令/秒">正常</button>
+      <button data-ips="25000" title="25000 指令/秒">快速</button>
+      <button data-ips="Infinity" title="+∞ 不限速：不按墙钟配速，以浏览器最快速度跑完">∞ 极速</button>
+    </div>
+    <div class="speed-slider">
+      <input type="range" id="speed" min="0" max="100" step="1" value="57" title="拖动微调执行速率（最右端为 +∞ 不限速）" />
+      <div class="speed-val">
+        <b id="speedLabel">1k/s</b>
+        <i id="speedActual">正常</i>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="overlay" id="helpOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>使用说明</h2>
+      <button class="ghost close" id="btnCloseHelp">关闭</button>
+    </div>
+    <div class="body">
+      <div>
+        <h3>快捷键</h3>
+        <dl class="kv">
+          <dt>Ctrl + Enter</dt><dd>运行 / 继续</dd>
+          <dt>F10</dt><dd>单步执行一条指令</dd>
+          <dt>F9</dt><dd>上一步：回退一条指令</dd>
+          <dt>Esc</dt><dd>暂停</dd>
+          <dt>Ctrl + S</dt><dd>导出项目文件</dd>
+          <dt>点击行号</dt><dd>设置 / 取消断点</dd>
+          <dt>↑ ↓</dt><dd>选中单元格后微调数值</dd>
+        </dl>
+      </div>
+      <div>
+        <h3>指令表</h3>
+        <table class="cmds">
+          <tr><td>+</td><td>当前单元格 +1（255 之后回到 0）</td></tr>
+          <tr><td>-</td><td>当前单元格 −1（0 之前回到 255）</td></tr>
+          <tr><td>&gt;</td><td>指针右移一格</td></tr>
+          <tr><td>&lt;</td><td>指针左移一格</td></tr>
+          <tr><td>.</td><td>输出当前单元格对应的 ASCII 字符</td></tr>
+          <tr><td>,</td><td>读入一个字符存入当前单元格（下方输入框）</td></tr>
+          <tr><td>[ ]</td><td>当前单元格为 0 时跳出 / 非 0 时跳回循环头</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>说明</h3>
+        <dl class="kv">
+          <dt>注释</dt><dd>BrainFuck 会忽略一切非指令字符，因此可直接在代码里写说明文字。</dd>
+          <dt>断点</dt><dd>断点按“行”生效：运行到该行第一条指令前暂停，继续运行不会重复命中同一位置。</dd>
+          <dt>调速</dt><dd>慢放 / 正常 / 快速 / ∞ 极速四档，或用滑杆在 1–200k 指令/秒之间微调（最左 1 条/秒）。<b>滑杆最右端与「∞ 极速」为 +∞ 不限速</b>：取消墙钟配速，按时间片让出主线程、以浏览器最快速度跑完，暂停与断点仍可随时响应；运行中改动立即生效，标签下方显示实测速率。</dd>
+          <dt>上一步</dt><dd>撤销最近执行的一条指令，指针、单元格、输出与输入队列一起回滚，最多可回退 5 万步（超出后旧记录被覆盖）。</dd>
+          <dt>仅运行</dt><dd>内存卡片头勾选后，<b>运行中</b>跳过内存网格与代码高亮重绘，只保留计算、输入和输出，适合高速 / ∞ 档跑大程序；暂停、单步、结束时自动恢复完整画面。开启「跟随」时仍会刷新当前指令高亮。</dd>
+          <dt>跟随</dt><dd>代码卡片头勾选后（默认关闭），运行时自动把左侧代码滚动到当前执行位置并高亮所在行；关闭时不打扰手动查看代码。</dd>
+          <dt>变量区</dt><dd>内存卡片头的复选框控制底部那块「地址 · 名称 · 注释 · 值」详情：取消勾选即收起，内存网格能多显示几行；选择状态随项目保存。</dd>
+          <dt>单元格注释</dt><dd>从编译器点「在调试器中打开」时，会把每个单元格的作用（累加器、临时区、源码变量名等）一并带过来，显示在内存格名称上，悬停可看完整说明。右下角「注释」框可给当前格编辑自己的备注（最多 120 字，右上角的小橙点表示有注释），随项目一起保存。</dd>
+          <dt>字号</dt><dd>顶栏 <b>A− / A+</b> 调整界面字号（10–21px），代码、行号、内存格、输出一起缩放并自动记住；也可按 Ctrl + + / Ctrl + −。行号与代码始终逐行对齐。</dd>
+          <dt>面板</dt><dd>点标题栏右侧箭头折叠面板；拖动卡片之间的细条调整高度，拖动左右两栏之间的细条调整宽度，双击细条恢复默认，尺寸与折叠状态会自动记住。</dd>
+          <dt>导出</dt><dd>项目文件（JSON）包含代码、单元格命名、断点、行注释、开发文档与内存容量；.bf 为纯源码。</dd>
+          <dt>保存</dt><dd>编辑内容自动保存在本机浏览器中，刷新不丢失。</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json,.bf,.b,.txt,.bfproj" style="display:none" />
+
+<!-- 原生多文件工程：按依赖顺序加载，无需构建工具与本地服务器 -->
+<script defer src="js/core/state.js"></script>
+<script defer src="js/core/speed.js"></script>
+<script defer src="js/core/history.js"></script>
+<script defer src="js/core/compiler.js"></script>
+<script defer src="js/core/interpreter.js"></script>
+<script defer src="js/ui/dom.js"></script>
+<script defer src="js/ui/editor.js"></script>
+<script defer src="js/ui/memory.js"></script>
+<script defer src="js/ui/console.js"></script>
+<script defer src="js/ui/status.js"></script>
+<script defer src="js/ui/notes.js"></script>
+<script defer src="js/ui/font.js"></script>
+<script defer src="js/ui/panels.js"></script>
+<script defer src="js/io/project.js"></script>
+<script defer src="js/app.js"></script>
+</body>
+</html>

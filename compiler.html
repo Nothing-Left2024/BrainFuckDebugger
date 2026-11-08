@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BrainFuck 编译器 · C / C++ / NASM</title>
+<link rel="stylesheet" href="css/tokens.css" />
+<link rel="stylesheet" href="css/compiler.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">BF</div>
+    <div>
+      <h1>BrainFuck 编译器</h1>
+      <p>C / C++ / NASM → BF · 逐句带注释</p>
+    </div>
+  </div>
+
+  <div class="langs" id="langs">
+    <button data-lang="c" class="on">C</button>
+    <button data-lang="cpp">C++</button>
+    <button data-lang="asm">NASM</button>
+  </div>
+
+  <div class="actions">
+    <label class="depth" title="8 位＝原来的单格无符号整数；int32＝普通 C/C++ 的 32 位有符号 int（4 格软件模拟，支持负数，代码明显变长）。int32_t / long 始终按 32 位处理">
+      int 位宽
+      <select id="intWidth">
+        <option value="8">8 位</option>
+        <option value="32">int32</option>
+      </select>
+    </label>
+    <label class="depth" title="递归没有调用栈，只能按层静态展开；层数越大代码越长">
+      递归层数 <input id="recDepth" type="number" min="1" max="24" step="1" value="8" />
+    </label>
+    <button id="btnStdlib" class="ghost accent">标准库</button>
+    <button id="btnExample">载入示例</button>
+    <button id="btnGuess" class="ghost">载入原版猜数字</button>
+    <button id="btnStr" class="ghost" title="std::string 的声明 / 拼接 / 长度 / 下标 / 子串 / 输入输出">string 示例</button>
+    <button id="btnFloat" class="ghost" title="float / double：定点数（放大 1000 倍），常量运算会在编译期算完">float 示例</button>
+    <button id="btnArray" class="ghost" title="一维 / 二维 / 三维数组，任意元素类型（char、int、int32、double、string），常量下标零开销">数组示例</button>
+    <button id="btnReturn" class="ghost" title="return：循环里提前返回、多层循环一起跳出、void 函数 return;、main 里 return 结束程序">return 示例</button>
+    <button id="btnFunc" class="ghost" title="char() / int() / double() / string() 函数式转换，cctype 字符函数，floor/ceil/round 取整，strlen/atoi">标准函数示例</button>
+    <button id="btnPtr" class="ghost" title="int *p = &a、*p = v、p++ 遍历数组、p[i]、指针形参 void f(int* p)、nullptr 判定">指针示例</button>
+    <button id="btnCalc" class="ghost" title="计算器示例：struct 结构体数组、switch/case 菜单、历史记录、聚合初始化、const 引用绑定，可直接在调试器里跑">计算器示例</button>
+    <button id="btnCalcFull" class="ghost" title="载入用户提交的完整多功能计算器源码（展开规模很大，完整生成请用「下载 .bf」分片导出）">计算器原版</button>
+    <button id="btnClear">清空</button>
+    <a class="btn" href="index.html">打开调试器 →</a>
+  </div>
+</header>
+
+<main class="tc-main">
+  <!-- 源码 -->
+  <section class="card">
+    <div class="card-head">
+      <span class="card-title">源码</span>
+      <span class="chip" id="srcChip">C</span>
+      <span class="spacer"></span>
+      <button class="ghost mini" id="btnIssuesShow" hidden>问题 / 警告</button>
+      <button class="ghost mini" id="btnHintShow" hidden>说明</button>
+      <span class="fs-ctl" title="源码字号（也可 Ctrl + 滚轮调节）">
+        <button type="button" id="srcFsMinus" aria-label="缩小源码字号">−</button>
+        <b id="srcFsVal">12.5</b>
+        <button type="button" id="srcFsPlus" aria-label="放大源码字号">+</button>
+      </span>
+      <span class="chip" id="srcStat">0 行</span>
+    </div>
+    <div class="src-wrap">
+      <div class="src-lines" id="srcLines" aria-hidden="true"></div>
+      <textarea id="src" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"
+        placeholder="在这里写 C / C++ / NASM 源码…"></textarea>
+    </div>
+    <div class="pane" id="issuesPane" hidden>
+      <div class="pane-head">
+        <span class="pane-title">问题与警告</span>
+        <span class="chip" id="issueCount">0</span>
+        <span class="spacer"></span>
+        <span class="pane-tip">点击条目跳到对应行</span>
+        <button class="pane-x" id="btnIssuesClose" title="关闭面板">✕</button>
+      </div>
+      <div class="issues" id="issues"></div>
+    </div>
+    <div class="hdr-line" id="hdrLine"></div>
+    <div class="pane" id="hintPane">
+      <div class="pane-head">
+        <span class="pane-title">支持范围</span>
+        <span class="spacer"></span>
+        <button class="pane-x" id="btnHintClose" title="关闭面板">✕</button>
+      </div>
+      <div class="hint">
+      <b>C / C++</b> <code>+ - * / %</code> · <b>位运算</b> <code>&amp; | ^ ~ &lt;&lt; &gt;&gt;</code>
+      与 <code>&amp;= |= ^= &lt;&lt;= &gt;&gt;=</code> · <code>+= -= *= /= %=</code> <code>++ --</code> ·
+      <code>?:</code> 三元 · <code>(int)x / static_cast / reinterpret_cast</code> ·
+      <code>0xFF / 42u / 0xC5ULL</code> · <code>uint64_t / auto</code> ·
+      <code>putchar / printf("%c %d") / cout &lt;&lt;</code>（整型按十进制，中文按 UTF-8）·
+      <b>输入</b> <code>scanf / cin &gt;&gt; / if (!(cin &gt;&gt; x))</code>（<code>cin &gt;&gt; char</code> 跳过空白）·
+      <b>函数</b> 多参数 / 返回值 / void / 递归 · <b>类</b> <code>class / struct</code>（单对象降级）·
+      <code>while / for / do-while / while(true)</code> · <code>if/else</code> · <code>break / continue</code>
+      <span class="hint-sep">|</span>
+      <b>标准库</b> <code>#include</code> · <code>#define</code> · <code>std::</code> ·
+      <code>rand / srand / randint / uniform / randbool</code>（输入熵扰动种子）· <code>time / clock</code> ·
+      <code>abs / min / max / clamp / gcd / sqrt / pow</code> · <code>isdigit / toupper / tolower</code> —
+      <a href="#" id="hintStdlib">查看全部支持范围 →</a>
+      <span class="hint-sep">|</span>
+      <b>NASM</b> <code>mov inc dec add sub</code> · <code>putc</code> · <code>cmp</code>+<code>jne</code> 循环
+      <span class="hint-sep">|</span>
+      <b>int32</b> <code>int32_t / int32 / long</code> 恒为 32 位有符号；顶栏「int 位宽」切成 int32 后普通 <code>int</code>
+      也是 32 位（4 格软件模拟，支持负数、<code>+ - * / %</code>、<code>&amp; | ^ ~ &lt;&lt; &gt;&gt;</code>、六种比较、
+      复合赋值与十进制输入输出；<b>除零得 0</b>，右移为算术移位。生成代码明显变长，乘除不宜放进高频内层循环；
+      函数参数 / 返回值仍按 8 位降级）
+      <span class="hint-sep">|</span>
+      <b>std::string</b> <code>string s = "…"</code> · <code>s + t / += / =</code> · <code>length / size / empty /
+      clear / push_back / pop_back / append</code> · <code>s[i]</code> 读写 · <code>at / substr / find</code> ·
+      <code>== != &lt; &gt;</code> 字典序 · <code>cout &lt;&lt; s / printf("%s")</code> · <code>cin &gt;&gt; s</code> ·
+      <code>getline(cin, s)</code> · <code>to_string / stoi</code>（定长 32 字节，按 UTF-8 字节存放）
+      <span class="hint-sep">|</span>
+      <b>float / double</b> <code>float f = 1.5;</code> · <code>+ - * /</code> 与 <code>+= -= *= /=</code> ·
+      <code>++ --</code> · 六种比较 · <code>cout &lt;&lt; f</code>（自动省略末尾 0）· <code>printf("%f")</code> /
+      <code>%.2f</code> · <code>cin &gt;&gt; f</code> / <code>scanf("%lf")</code> · <code>(int)f</code> 截断 ·
+      <b>定点数实现</b>：放大 1000 倍的 int32（3 位小数，范围 ±214 万，精度 0.001）；
+      <b>常量的四则运算会在编译期算完</b>，一条浮点指令都不生成
+      <span class="hint-sep">|</span>
+      <b>数组</b> 任意维数 <code>int a[5] / int m[3][4] / int t[2][2][2]</code> ·
+      <b>任意元素类型</b> <code>char / int / int32_t / double / string</code> ·
+      <code>{1,2,3}</code> 初始化列表（内层花括号可省）· <code>char s[] = "abc"</code> ·
+      <code>a[i] = v / += -= *= /= %= ^= ++ --</code> · <code>cin &gt;&gt; a[i]</code> /
+      <code>scanf("%d", &amp;a[i])</code> · <code>sizeof(a)/sizeof(a[0])</code> · <code>memset(a, 0, …)</code> ·
+      <b>常量下标零开销</b>（直接命中那个元素），变量下标生成逐维比较树（O(元素数)）·
+      长度必须是编译期常量；元素按「一维摊平」各占独立单元格，元素很多时代码会明显变长
+      <span class="hint-sep">|</span>
+      <b>引用</b> <code>int&amp; r = x;</code> · <code>void swap(int&amp; a, int&amp; b)</code> ·
+      <code>const int&amp;</code> · 可绑定变量、数组元素（含变量下标 <code>a[i]</code>）、另一个引用 ·
+      <b>编译期展开成别名</b>（<code>r</code> 直接写成 <code>x</code>，不占单元格、不多一条指令）·
+      标准库 <code>swap(a, b)</code> 已可用，也能直接 <code>swap(a[j], a[j+1])</code> ·
+      引用形参的实参必须是变量（传表达式会告警并退化为按值）；函数<strong>返回</strong>引用、右值引用
+      <code>&amp;&amp;</code> 按值降级
+      <span class="hint-sep">|</span>
+      <b>return</b> 任意位置都能提前返回：<b>循环体里</b>（含多层嵌套，会一路跳出）、
+      <code>if / else</code> 分支里、<b>main 里</b>（等于结束整个程序，后面的语句一律不执行）·
+      <b>void</b> 函数可用 <code>return;</code> · 实现方式是「继续执行标志」：return 清零后，
+      后续语句被 <code>if (标志)</code> 挡住、循环条件变成 <code>标志 &amp;&amp; 原条件</code> 从而退出 ·
+      唯一一个 <code>return</code> 落在末尾时零开销
+      <span class="hint-sep">|</span>
+      <b>函数式转换 / 标准函数</b> <code>char(65) / int(x) / double(2) / bool(x) / string("hi")</code>
+      （与 <code>(char)x</code> 等价，<code>char(300)</code> 会真截断成 44）·
+      <code>&lt;cctype&gt;</code> 全套 <code>isspace / isblank / isxdigit / ispunct / isprint / isgraph / iscntrl</code> ·
+      <code>strlen</code>（字面量 / std::string / char 数组）、<code>atoi / stoi / atol</code>、<code>labs / llabs / fabs</code> ·
+      <code>floor / ceil / round / trunc</code> 定点数感知 ·
+      <code>string(n, ch)</code> 重复构造（常量编译期展开，变量走运行期循环）
+      <span class="hint-sep">|</span>
+      <b>指针</b> <code>int *p = &amp;a; *p = 9;</code> · <code>int *p = a; p++; *p</code> 数组内游标 ·
+      <code>p[i] / *(p+1) / p = &amp;b</code> · <code>void f(int* p)</code> 指针形参 ·
+      <code>nullptr / NULL</code> 与 <code>if (p) / p == q</code> 编译期判定 ·
+      <code>scanf("%d", p)</code> / <code>cin &gt;&gt; *p</code> ·
+      编译期绑定到目标变量（<b>常量指向零开销</b>），只有 <code>p++</code> 才生成游标格 ·
+      <code>char *s = "hi"</code> 按 std::string 降级；<code>** / void* / 函数指针 / new</code> 不支持
+      <span class="hint-sep">|</span>
+      <b>struct / switch</b> <code>struct H { char op; double a, b, result; }; H hist[50];</code>
+      每个字段摊成一条独立数组（<code>hist.op[0]</code> …），支持 <code>h[i].a</code> 读写、
+      <code>hist[n++] = {op,a,b,result}</code> 聚合初始化、<code>hist[i-1] = hist[i]</code> 整体拷贝、
+      <code>const H&amp; h = hist[i];</code> 只读引用绑定 ·
+      <code>switch / case / default</code> 降级成 if-else 链（连续 case 合并、break 用「继续执行标志」实现、
+      无 break 按贯穿展开）、<code>case 1: case 2:</code> 共享分支 ·
+      <code>c++i / i++</code> 在表达式、for 步进、数组下标里都可用 ·
+      <code>std::cin.get(ch)</code> 读单字符
+      <span class="hint-sep">|</span>
+      <b>不再限制规模</b> 展开后不管多少条 BF 指令都<b>完整生成</b>，没有 2000 万条上限，导出也不会被拦下。
+      「下载 .bf」按 64 KB 分片直接交给 Blob，不必拼一整条巨型字符串；「在调试器中打开」对大代码自动
+      改用 IndexedDB 桥接，绕开 sessionStorage 的 5 MB 配额。
+      规模变大的常见诱因：定点 <code>double</code> 乘除（一次数百万条）、几十上百个元素的结构体数组 + 变量下标、
+      200 次迭代的数值算法 —— 这类程序导出会明显变慢并占用较多内存。
+      顶栏「计算器示例」是可直接跑通的精简版，「计算器原版」用来验收完整源码的编译与导出
+      <span class="hint-sep">|</span>
+      <b>编译期优化</b> 常量传播 / 死存储与死输入消除 / 常量输出直接内联
+      （<code>int32 a=1,b; cin&gt;&gt;b; b=1; cout&lt;&lt;a+b;</code> 会变成只剩一条输出 <code>2</code>）·
+      <b>大程序省内存</b>：右侧只预览前 120 KB（单元格数是完整值，状态栏标「仅预览」）。
+      预览另有 400 ms 时间预算，极端大程序的指令数会显示成下界「≥ N」，但导出的一定是完整代码。
+      点「复制 / 下载 .bf / 在调试器中打开」时按需生成完整代码
+      <span class="hint-dim">· 点「载入原版猜数字」可验收完整 guess_number.cpp；BF 无 64 位整数 / 系统时钟 / 对象 / 流状态，
+        这些会明确降级并告警。8 位模式下所有算术按无符号回绕，除数为 0 得 0；变长数组、数组作函数参数、
+        树状递归不支持；指针按编译期别名实现，详见上方条目。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 输出 -->
+  <section class="card">
+    <div class="card-head">
+      <span class="card-title">BrainFuck</span>
+      <span class="chip" id="bfStat">—</span>
+      <span class="spacer"></span>
+      <span class="fs-ctl" title="BrainFuck 输出字号（也可 Ctrl + 滚轮调节）">
+        <button type="button" id="bfFsMinus" aria-label="缩小输出字号">−</button>
+        <b id="bfFsVal">12.5</b>
+        <button type="button" id="bfFsPlus" aria-label="放大输出字号">+</button>
+      </span>
+      <label class="opt" title="生成的 BrainFuck 是否附带逐句注释与内存说明">
+        <input type="checkbox" id="optComments" checked /> 注释
+      </label>
+      <label class="opt" title="显示 / 隐藏底部的变量列表（源码变量 → 单元格地址）">
+        <input type="checkbox" id="optVars" checked /> 变量区
+      </label>
+      <button class="ghost" id="btnCopy">复制</button>
+      <button class="ghost" id="btnDownload">下载 .bf</button>
+      <button class="ghost accent" id="btnRunInDebugger">在调试器中打开</button>
+    </div>
+    <pre class="bf-out" id="bfOut"></pre>
+    <div class="vars" id="vars"></div>
+  </section>
+</main>
+
+<!-- 标准库速查 -->
+<div class="lib-overlay" id="libOverlay" hidden>
+  <div class="lib-modal" role="dialog" aria-label="标准库支持范围">
+    <div class="lib-head">
+      <div>
+        <h2>标准库支持范围</h2>
+        <p>收录 <b id="libHdrTotal">0</b> 个 C / C++ 标准头文件，其中 <b id="libHdrOk">0</b> 个提供可运行函数</p>
+      </div>
+      <button class="ghost" id="btnLibClose">关闭 ✕</button>
+    </div>
+
+    <div class="lib-body">
+      <h3>可用函数 <small>用本编译器自身的 C 子集实现，按调用点内联展开</small></h3>
+      <div class="lib-grid" id="libFuncs"></div>
+
+      <h3>头文件 <small>绿＝函数可用，黄＝类型/常量，灰＝仅识别</small></h3>
+      <div class="lib-grid hdr" id="libHeaders"></div>
+      <p class="lib-note" id="libNoneNote"></p>
+
+      <h3>使用说明</h3>
+      <ul class="lib-notes">
+        <li><b>随机数 / 时间</b>：8 位 LCG（周期 256），<code>rand</code> 每调用一次都会推进种子，所以循环里连续取随机数不会重复。
+            <code>srand</code> / <code>srandom</code> 设种子，<code>rand</code> / <code>random</code> 返回 0–255，
+            <code>randint(a,b)</code> / <code>uniform(a,b)</code> 取闭区间，<code>randbool()</code> 返回 0/1。
+            <code>&lt;ctime&gt;</code> 的 <code>time</code> / <code>clock</code> 因无系统时钟固定返回 0，
+            所以 <code>srand(time(nullptr))</code> 等价于 <code>srand(0)</code>，<strong>每次运行的第一局答案固定</strong>；
+            想让第一局也可变，改成「先 <code>cin &gt;&gt; n</code> 再 <code>srand(n)</code>」。
+            编译器还会启用 <b>输入熵</b>：程序每读到一次输入就扰动随机种子，之后每局、以及输入序列不同时数字都不同。
+            <code>&lt;random&gt;</code> 的 <code>std::mt19937</code>、<code>uniform_int_distribution</code> 等引擎/分布
+            <strong>对象语法不支持</strong>（BF 没有对象与模板），请改用上面的函数式写法。</li>
+        <li><b>位运算</b>：<code>&amp; | ^ ~ &lt;&lt; &gt;&gt;</code> 及对应复合赋值全部支持（8 位无符号）。
+            <code>&lt;&lt; / &gt;&gt;</code> 的位移量是常量时直接生成乘除，代码很短；<code>&amp; | ^ ~</code>
+            与变量位移量由内部函数逐位实现，单次约 1 万条指令。混合运算建议加括号。</li>
+        <li><b>预处理</b>：<code>#define NAME 值</code> 支持常量宏（可嵌套引用）；内置
+            <code>true false NULL RAND_MAX CHAR_MAX UCHAR_MAX INT_MAX EOF</code>。
+            库函数按源码里实际调用自动启用，不写 <code>#include</code> 也能用；未收录的头文件会给出提示。</li>
+        <li><b>命名空间</b>：<code>std::rand()</code>、<code>std::abs()</code>、<code>std::min()</code> 等会自动剥掉
+            <code>std::</code>；<code>std::cout / cin / endl</code> 照常可用。</li>
+        <li><b>数值语义</b>：所有变量是一字节无符号（0–255 回绕）。<code>abs / sqrt / pow / gcd</code> 是 8 位整数版；
+            <code>time()</code> 没有系统时钟，固定返回 0。<code>toupper / tolower</code> 返回字符，
+            <code>max / isdigit / randint</code> 等返回数字 —— 这会影响 <code>cout &lt;&lt;</code> 按字符还是按十进制输出。</li>
+        <li><b>std::string</b>：用 <b>1 格长度 + 32 格字节</b>模拟，按 UTF-8 字节存放，
+            所以 <code>length()</code> / <code>size()</code> 返回的是字节数（一个汉字算 3 个）。
+            支持声明 / 赋值 / 拷贝 / <code>+</code> 拼接 / <code>+=</code> / <code>length / size / empty / clear /
+            push_back / pop_back / append / at / substr / find</code> / <code>s[i]</code> 读写 /
+            六种字典序比较 / <code>cout &lt;&lt; s</code> / <code>printf("%s")</code> /
+            <code>cin &gt;&gt; s</code>（读到空白，分隔符回推）/ <code>getline</code> / <code>to_string / stoi</code>。
+            超出 32 字节会被截断并告警；字符串<strong>不能作函数参数 / 返回值</strong>，请改用全局字符串变量。</li>
+        <li><b>数组</b>：<code>int a[5]</code> / <code>int m[3][4]</code> 等任意维数、任意元素类型
+            （<code>char / int / int32_t / double / string</code>）。每个元素在编译期摊成独立单元格：
+            <b>常量下标直接命中、零开销</b>；变量下标生成逐维比较的选择树，代价 O(元素数)。
+            长度必须是编译期常量；元素很多（几十上百）时代码会明显变长。
+            变长数组、把数组当函数参数传递不支持（指针本身可用，见下一条）。</li>
+        <li><b>return</b>：函数体里<strong>任意位置</strong>都能提前返回 —— 循环体内（含多层嵌套，
+            会一路跳出所有外层循环）、<code>if / else</code> 分支内、<code>do-while</code> 内都支持。
+            <code>main</code> 里的 <code>return</code> 等于「程序到此结束」，后续语句一条都不会执行。
+            <code>void</code> 函数可写 <code>return;</code>，非 void 函数必须带返回值。
+            BrainFuck 没有跳转指令，实现方式是<b>「继续执行标志」</b>：<code>return</code> 把标志清零，
+            之后所有语句包一层 <code>if (标志)</code>、循环条件变成 <code>标志 &amp;&amp; 原条件</code>，
+            于是自然退出。只有真的出现多处 return 才会加这层开销；唯一的 return 位于末尾时直接省掉。</li>
+        <li><b>标准函数</b>：类型名可以直接当函数用（<code>char(65) / int(x) / double(2) /
+            bool(x) / string("hi")</code>），语义与 C 风格强转一致；<code>std::</code> 前缀自动剥离。
+            <code>&lt;cctype&gt;</code> 全套字符分类与 <code>toupper / tolower</code> 可用，
+            <code>strlen</code> 支持字面量 / <code>std::string</code> / <code>char</code> 数组，
+            <code>atoi / stoi / atol / strtol</code> 字面量会在编译期算完。
+            <code>floor / ceil / round / trunc</code> 按「放大 1000 倍的定点数」正确取整；
+            <code>fabs / labs / llabs</code> 按 8 位绝对值处理。</li>
+        <li><b>指针</b>：BrainFuck 没有地址，指针在编译期绑定到「目标变量名」——
+            <code>int *p = &amp;a;</code> 之后 <code>*p</code> 直接就是 <code>a</code>，不占单元格、零额外指令。
+            支持取地址 <code>&amp;a / &amp;a[i]</code>、解引用读写（含 <code>+= -= *= /= ++ --</code>）、
+            重新绑定 <code>p = &amp;b</code>、数组名退化 <code>int *p = a</code>、
+            指针下标 <code>p[i]</code> 与偏移 <code>*(p+1)</code>。
+            指向数组的指针做 <code>p++ / p-- / p += n</code> 时会自动生成一个运行期游标格，
+            <code>*p</code> 走数组选择树（代价 O(元素数)）—— 因此数组遍历能正确随 <code>p++</code> 移动。
+            <code>void f(int* p)</code> 指针形参复用引用内联机制，<code>*p</code> 在调用点落到实参那一格。
+            <code>scanf("%d", p)</code> / <code>cin &gt;&gt; *p</code> 可用。
+            指针真假与相等（<code>if (p) / p == nullptr / p == q</code>）编译期判定。
+            边界：<code>** / void* / 函数指针 / new / 任意地址算术</code> 不支持；
+            <code>char *s = "hi"</code> 按 <code>std::string</code> 降级并告警。</li>
+        <li><b>边界</b>：<code>&lt;vector&gt; &lt;map&gt; &lt;set&gt;</code> 等容器头文件只识别、不支持；
+            模板、树状递归同样不在子集内。<code>class / struct</code> 按「成员变量→全局变量、
+            方法→普通函数」降级（单对象等价）；64 位整数取低 8 位，<code>chrono</code> / 系统时钟固定为 0，
+            <code>cin</code> 流状态按「读取成功」处理，这些都会逐条给出告警。</li>
+      </ul>
+    </div>
+
+    <div class="lib-foot">
+      <button class="ghost" id="btnLibExC">载入 C 示例</button>
+      <button class="ghost" id="btnLibExCpp">载入 C++ 示例</button>
+      <span class="spacer"></span>
+      <span class="lib-dim" id="libUsed"></span>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script defer src="js/tc/lexer.js"></script>
+<script defer src="js/tc/stdlib.js"></script>
+<script defer src="js/tc/parser-c.js"></script>
+<script defer src="js/tc/parser-asm.js"></script>
+<script defer src="js/tc/fold.js"></script>
+<script defer src="js/tc/loops.js"></script>
+<script defer src="js/tc/codegen.js"></script>
+<script defer src="js/tc/inline.js"></script>
+<script defer src="js/tc/opt.js"></script>
+<script defer src="js/tc/i32.js"></script>
+<script defer src="js/tc/str.js"></script>
+<script defer src="js/tc/compiler.js"></script>
+<script defer src="js/tc/guess-examples.js"></script>
+<script defer src="js/tc/ui.js"></script>
+</body>
+</html>

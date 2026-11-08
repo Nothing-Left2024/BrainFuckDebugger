@@ -1,0 +1,56 @@
+/* ================= 轻提示 ================= */
+.toast-wrap{
+  position:fixed; left:50%; bottom:76px;
+  transform:translateX(-50%);
+  z-index:200;
+  display:flex; flex-direction:column; gap:8px; align-items:center;
+  pointer-events:none;
+}
+.toast{
+  padding:8px 14px; border-radius:8px;
+  background:#16202e; border:1px solid var(--line2);
+  color:#d6e0ea; font-size:12.5px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  animation:tin .18s ease-out;
+}
+@keyframes tin{ from{ opacity:0; transform:translateY(6px); } }
+
+/* ================= 帮助弹窗 ================= */
+.overlay{
+  position:fixed; inset:0; z-index:300;
+  background:rgba(5,8,12,.68);
+  display:none; align-items:center; justify-content:center;
+  padding:24px;
+}
+.overlay.open{ display:flex; }
+
+.modal{
+  width:min(620px, 100%);
+  max-height:82vh; overflow:auto;
+  background:var(--panel);
+  border:1px solid var(--line2);
+  border-radius:14px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+.modal-head{
+  display:flex; align-items:center;
+  border-bottom:1px solid var(--line);
+}
+.modal h2{
+  margin:0; padding:16px 18px;
+  font-size:14px; border:0;
+}
+.modal .close{ margin-left:auto; margin-right:12px; }
+.modal .body{ padding:14px 18px 18px; display:flex; flex-direction:column; gap:14px; }
+.modal h3{
+  margin:0 0 6px;
+  font-size:12px; color:var(--accent); font-weight:600; letter-spacing:.4px;
+}
+.kv{ display:grid; grid-template-columns:120px 1fr; gap:6px 12px; font-size:12.5px; margin:0; }
+.kv dt{ color:var(--muted); font-family:var(--mono); font-size:11.5px; }
+.kv dd{ margin:0; color:#cfdae6; }
+
+table.cmds{ width:100%; border-collapse:collapse; font-size:12.5px; }
+table.cmds td{ padding:5px 6px; border-bottom:1px solid var(--line); }
+table.cmds td:first-child{ width:52px; font:600 13px var(--mono); color:var(--green); }
+table.cmds tr:last-child td{ border-bottom:0; }
